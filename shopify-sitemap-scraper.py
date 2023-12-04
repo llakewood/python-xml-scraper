@@ -4,6 +4,9 @@ from bs4 import BeautifulSoup
 import random
 import pandas as pd
 
+# Who we lookin' at? Set top level URL var
+URL = "https://blacksheepniagara.com/sitemap.xml"
+
 # Fake a browser to bypass robot.txt exclusions
 user_agents_list = [
     'Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
@@ -11,13 +14,12 @@ user_agents_list = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36'
 ]
 
-URL = "https://blacksheepniagara.com/sitemap.xml"
-
 # Section URL for handy usage later
 def setURL(URL = URL):
   URL = URL
   return URL
 
+# What is the domain root? Use it for nicename later
 def getDomain():
   domain_name = setURL().split('/')[2]
   return domain_name.split('.')[0]
@@ -29,13 +31,13 @@ def is_parent(loc):
   if "xml" in loc : parent = 1
   return parent
 
-print('Scraping:' + getDomain())
-
 # Get XML data ready for parseing
 xml_data = requests.get(URL, headers={'User-Agent': random.choice(user_agents_list)}).content
 
 # Parse XML function
 def scrape_sitemap(xml_data):
+  # Notify terminal what site we are scraping
+  print('Scraping:' + getDomain())
     
   # Initializing soup variable
     soup = BeautifulSoup(xml_data, 'xml')
