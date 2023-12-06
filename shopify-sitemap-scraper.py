@@ -9,11 +9,13 @@ import pandas as pd
 # - Features
 # -- Parse and write Shopify blogEntries
 # - Next up
-# -- Parse and write Shopify desired types based on config (pages and blogs, no cases for file and collection yet)
+# -- Parse and write Shopify desired types based on config
 #############################################
 
 ##############################################
 # SCRIPT CONFIG
+# - must be top-level sitemap.xml for Shopify
+# - pages and blogs cases only, no files or collections yet
 ##############################################
 
 class xmlConfig:
@@ -31,17 +33,69 @@ class xmlConfig:
 def init():
   
   # Name it nice
-  xml_config = xmlConfig()
-  guid = getattr(xml_config, 'guid')
+  guid = getattr(xmlConfig(), 'guid')
 
   ## Parse source xml to DataFrame table, passing configs
-  df = parse_xml(
-    xml_config,
+  df = parse_sitemap(
     request_xml(guid)
   )
 
   ## Write the DataFrame table to local csv
   df.to_csv('shopify.csv')
+
+def parse_sitemap(xml_data):
+  # Initializing soup variable for top level XML
+  soup = BeautifulSoup(xml_data, 'xml')
+  all_submaps = soup.find_all('sitemap')
+  submaps_items_length = len(all_submaps)
+
+  for index, item in enumerate(all_submaps):
+    submap_guid = item.find('loc').text
+    parseSubmap = False
+
+    if ('blog' in submap_guid and getattr(xmlConfig(), 'blog')) : parseSubmap = True
+    if ('page' in submap_guid and getattr(xmlConfig(), 'page')) : parseSubmap = True
+
+    if parseSubmap:
+      df = parse_xml(
+        request_xml(submap_guid)
+      )
+
+  return df
+
+# Read and structure XML results as DataFrame for csv export
+def parse_xml(xml_data):
+ 
+  # Creating column shape for table
+  df = pd.DataFrame(columns=['guid', 'title', 'pubDate', 'body'])
+
+  # Initializing soup variable for child level XML
+  soup = BeautifulSoup(xml_data, 'xml')
+
+  # Iterating through item tag and extracting elements
+  all_items = soup.find_all('url')
+  items_length = len(all_items)
+  
+  for index, item in enumerate(all_items):
+    guid = item.find('loc').text
+    image = item.find('image')
+    guid_data = parse_guid(index, items_length, guid)
+    title =  item.find('image:title')
+    body = guid_data
+    pub_date = item.find('lastmod').text
+
+    # Adding extracted elements to rows in table
+    row = {
+        'guid': guid,
+        'title': title,
+        'pubDate': pub_date,
+        'body': body
+    }
+
+    df = df._append(row, ignore_index=True)
+    print(f'Appending row %s of %s' % (index+1, items_length))
+
+  return df
 
 # Return XML structure from remote host server through browser simulation
 def request_xml(guid):
@@ -53,53 +107,20 @@ def request_xml(guid):
   xml_data = requests.get(guid, headers={'User-Agent': random.choice(user_agents_list)}).content
   return xml_data
 
-# Read and structure XML results as DataFrame for csv export
-def parse_xml(xml_config, xml_data):
-  # Initializing soup variable
-    soup = BeautifulSoup(xml_data, 'xml')
-
-  # Creating column for table
-    df = pd.DataFrame(columns=['guid', 'title', 'pubDate', 'body'])
-
-  # Iterating through item tag and extracting elements
-    all_items = soup.find_all('url')
-    items_length = len(all_items)
-    
-    for index, item in enumerate(all_items):
-      guid = item.find('loc').text
-      image = item.find('image')
-      guid_data = parse_guid(index, items_length, guid, 'shopify-section-article-template', xml_config)
-      title =  item.find('image:title')
-      body = guid_data
-      pub_date = item.find('lastmod').text
-
-      # Adding extracted elements to rows in table
-      row = {
-          'guid': guid,
-          'title': title,
-          'pubDate': pub_date,
-          'body': body
-      }
-
-      df = df._append(row, ignore_index=True)
-      print(f'Appending row %s of %s' % (index+1, items_length))
-
-    return df
-
 # Structre HTML response of sitemap link results
-def parse_guid(index, items_length, guid, slug, xml_config):
+def parse_guid(index, items_length, guid):
   guid_page_content = request_xml(guid)
   soup = BeautifulSoup(guid_page_content, "html.parser")   
-  results = soup.find(id=slug)
   
-  print(guid)
   ## Determine desired data
-  if 'blog' in guid and getattr(xml_config, 'blog'):
+  guid_data = None
+  if 'blog' in guid and getattr(xmlConfig(), 'blog'):
+    results = soup.find(id='shopify-section-article-template')
     guid_data = blog_entries(index, items_length, guid, results)
-  elif 'pages' in guid and getattr(xml_config, 'page'):
+
+  if 'page' in guid and getattr(xmlConfig(), 'page'):
+    results = soup.find(id='PageContainer')
     guid_data = pages_entries(index, items_length, guid, results)
-  else:
-    guid_data = None
 
   return guid_data
 
@@ -128,19 +149,7 @@ def pages_entries(index, items_length, link, results):
   if results:
     page_elements = results.find_all("div", class_="wrapper")
     for page_content in page_elements:
-     
-      # Set variables
-      title = page_content.find("h1").text.strip()
-      bodyContent = page_content.find("div", class_="rte")
-
-      # Format page object
-      row = {
-          'type': 'page',
-          'link': link,
-          'title': title,
-          'bodyContent': bodyContent
-      }
-    return bodyContent
+      return page_content.find("div", class_="rte")
 
 ## Onward, you crafty thing!
 init()
