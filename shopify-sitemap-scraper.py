@@ -44,6 +44,10 @@ def init():
   df.to_csv('shopify.csv')
 
 def parse_sitemap(xml_data):
+
+  # Creating column shape for table
+  df = pd.DataFrame(columns=['guid', 'title', 'pubDate', 'body'])
+
   # Initializing soup variable for top level XML
   soup = BeautifulSoup(xml_data, 'xml')
   all_submaps = soup.find_all('sitemap')
@@ -58,17 +62,15 @@ def parse_sitemap(xml_data):
 
     if parseSubmap:
       df = parse_xml(
-        request_xml(submap_guid)
+        request_xml(submap_guid),
+        df
       )
 
   return df
 
 # Read and structure XML results as DataFrame for csv export
-def parse_xml(xml_data):
+def parse_xml(xml_data, df):
  
-  # Creating column shape for table
-  df = pd.DataFrame(columns=['guid', 'title', 'pubDate', 'body'])
-
   # Initializing soup variable for child level XML
   soup = BeautifulSoup(xml_data, 'xml')
 
