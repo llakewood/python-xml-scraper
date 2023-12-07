@@ -19,7 +19,7 @@ import pandas as pd
 ##############################################
 
 class xmlConfig:
-  guid = 'https://blacksheepniagara.com/sitemap.xml'
+  guid = 'https://shopifysite.com/sitemap.xml'
   blog = True
   collection = False
   page = True
@@ -80,10 +80,8 @@ def parse_xml(xml_data, df):
   
   for index, item in enumerate(all_items):
     guid = item.find('loc').text
-    image = item.find('image')
-    guid_data = parse_guid(index, items_length, guid)
     title =  item.find('image:title')
-    body = guid_data
+    body = parse_guid(index, items_length, guid)
     pub_date = item.find('lastmod').text
 
     # Adding extracted elements to rows in table
@@ -91,7 +89,7 @@ def parse_xml(xml_data, df):
         'guid': guid,
         'title': title,
         'pubDate': pub_date,
-        'body': body
+        'body': getattr(body,'body')
     }
 
     df = df._append(row, ignore_index=True)
@@ -132,26 +130,29 @@ def blog_entries(index, items_length, link, results):
     page_elements = results.find_all("article", class_="article")
     for page_content in page_elements:
       # Set variables
-      title = page_content.find("h1").text.strip()
-      bodyContent = page_content.find("div", class_="rte")
-      pubDate = page_content.find("time")
-
+      # title = page_content.find("h1").text.strip()
+      # bodyContent = page_content.find("div", class_="rte")
+      # pubDate = page_content.find("time")
+      print(page_content.find("div", class_="rte"))
       # Format object
-      row = {
-          'type': 'blog',
-          'link': link,
-          'title': title,
-          'pubDate': pubDate.text.strip(),
-          'bodyContent': bodyContent
-      }
-    return bodyContent
+      class row: 
+        datatype = 'blog'
+        body = page_content.find("div", class_="rte")
+
+    return row()
 
 ## Structure Page Data
 def pages_entries(index, items_length, link, results):
   if results:
     page_elements = results.find_all("div", class_="wrapper")
     for page_content in page_elements:
-      return page_content.find("div", class_="rte")
+      
+      # Format object
+      class row: 
+        datatype = 'page'
+        body = page_content.find("div", class_="rte")
+        
+    return row()
 
 ## Onward, you crafty thing!
 init()
